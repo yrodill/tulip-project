@@ -43,7 +43,17 @@ def coloring_edges(graph,viewColor,Negative,Positive):
     else:
       viewColor[e] = tlp.Color.Blue
 
-def call(graph,root,cluster):
+def call(hierarchical_tree,genes_interactions_tree,root):
+  if genes_interactions_tree.numberOfSubGraphs() >0:
+    for subg in genes_interactions_tree.getSubGraphs():
+      currentNode = hierarchical_tree.addNode()
+      hierarchical_tree.addEdge(root,currentNode)
+      call(hierarchical_tree,subg,currentNode)
+  else:
+    for n in genes_interactions_tree.getNodes():
+      hierarchical_tree.addNode(n)
+      hierarchical_tree.addEdge(root,n)
+    
 #  add(node)
 #  relier(cluster.node,root)
 #  if souscluster :
@@ -53,12 +63,13 @@ def call(graph,root,cluster):
   
   return #stub
   
-def create_hierarchical_tree():
-  g=tlp.newGraph()
+def create_hierarchical_tree(hierarchicalTree,gene_interact_graph):
+  root = hierarchicalTree.addNode()
+  call(hierarchicalTree,gene_interact_graph,root)
   
 
 def draw(graph,viewShape):
-  print(tlpgui.getAvailableViews())
+  tlpgui.closeAllViews()
   test = tlpgui.createView("Node Link Diagram view", graph, dataSet={}, show=True)
   gui = test.getRenderingParameters()
   gui.setEdgeColorInterpolate(False)
@@ -113,7 +124,13 @@ def main(graph):
   viewTgtAnchorShape = graph.getIntegerProperty("viewTgtAnchorShape")
   viewTgtAnchorSize = graph.getSizeProperty("viewTgtAnchorSize")
   
-  preprocessing_label(graph,Locus,viewLabel,viewSize)
-  coloring_edges(graph,viewColor,Negative,Positive)
-  draw(graph,viewShape)
-  print(tlp.dfs(graph))
+  #preprocessing_label(graph,Locus,viewLabel,viewSize)
+  #coloring_edges(graph,viewColor,Neghative,Positive)
+  #draw(graph,viewShape)
+  if graph.getSubGraph("clone_gi"):
+    graph.delSubGraph(graph.getSubGraph("clone_gi"))
+  graph.addSubGraph("clone_gi")
+  g=graph.getSubGraph("clone_gi")
+  gi=graph.getSubGraph("Genes interactions")
+  create_hierarchical_tree(g,gi)
+  g.applyLayoutAlgorithm("Tree Radial")
