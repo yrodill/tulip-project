@@ -27,11 +27,17 @@ from tulip import *
 
 # The main(graph) function must be defined 
 # to run the script on the current graph
+
+#Part 1 : Previsualization
+
+#function for the preprocessing of the labels
 def preprocessing_label(graph,Locus,viewLabel,viewSize):
   for n in graph.getNodes():
     viewLabel[n] = Locus[n]
     viewSize[n] = tlp.Size(5,5,1)
- 
+
+#function used to color the edges of the graph using his
+#negative and positive property 
 def coloring_edges(graph,viewColor,Negative,Positive):
   for e in graph.getEdges():
     if Negative[e] == True and Positive[e] == False:
@@ -42,6 +48,27 @@ def coloring_edges(graph,viewColor,Negative,Positive):
       viewColor[e]=tlp.Color.Black
     else:
       viewColor[e] = tlp.Color.Blue
+      
+#function used to draw the graph
+#closing all views from Tulip first and creating a new one with no interpolate
+#then applaying a tree radial algorithm with edge bundling and bezier curve format to the edges
+def draw(graph,viewShape):
+  tlpgui.closeAllViews()
+  test = tlpgui.createView("Node Link Diagram view", graph, dataSet={}, show=True)
+  gui = test.getRenderingParameters()
+  gui.setEdgeColorInterpolate(False)
+  graph.applyLayoutAlgorithm("Tree Radial")
+  graph.applyAlgorithm('Edge bundling')
+  for e in graph.getEdges():
+    viewShape[e]=tlp.EdgeShape.BezierCurve
+
+#Part 2 : Interaction network drawing
+
+#function used to create the hierarchical tree using the graph of the genes interactions
+#builds the hierarchical tree using a recursive call function
+def create_hierarchical_tree(hierarchicalTree,gene_interact_graph):
+  root = hierarchicalTree.addNode()
+  call(hierarchicalTree,gene_interact_graph,root)
 
 def call(hierarchical_tree,genes_interactions_tree,root):
   if genes_interactions_tree.numberOfSubGraphs() >0:
@@ -53,30 +80,19 @@ def call(hierarchical_tree,genes_interactions_tree,root):
     for n in genes_interactions_tree.getNodes():
       hierarchical_tree.addNode(n)
       hierarchical_tree.addEdge(root,n)
-    
-#  add(node)
-#  relier(cluster.node,root)
-#  if souscluster :
-#    call(graph, cluster, souscluster)
-#  else :
-#    relier(nodes, edges, root)
-  
-  return #stub
-  
-def create_hierarchical_tree(hierarchicalTree,gene_interact_graph):
-  root = hierarchicalTree.addNode()
-  call(hierarchicalTree,gene_interact_graph,root)
-  
 
-def draw(graph,viewShape):
-  tlpgui.closeAllViews()
-  test = tlpgui.createView("Node Link Diagram view", graph, dataSet={}, show=True)
-  gui = test.getRenderingParameters()
-  gui.setEdgeColorInterpolate(False)
-  graph.applyLayoutAlgorithm("Tree Radial")
-  graph.applyAlgorithm('Edge bundling')
-  for e in graph.getEdges():
-    viewShape[e]=tlp.EdgeShape.BezierCurve
+#function used to color the nodes of a graph using their tpX_s values
+#using the BiologicalHeatMap colorScale inverted
+def colorNodes(graph,tpX_s,viewColor):
+  tpX_sValues=[]
+  for n in graph.getNodes():
+    tpX_sValues.append(tpX_s[n])
+  highestTpX_sValue = max(tpX_sValues)
+  colorScale=tlpgui.ColorScalesManager.getColorScale("BiologicalHeatMap")
+
+  for n in graph.getNodes():
+    color=colorScale.getColorAtPos(1-(tpX_s[n]/highestTpX_sValue))
+    viewColor[n]=color
   
 def main(graph):
   Locus = graph.getStringProperty("Locus")
@@ -124,13 +140,17 @@ def main(graph):
   viewTgtAnchorShape = graph.getIntegerProperty("viewTgtAnchorShape")
   viewTgtAnchorSize = graph.getSizeProperty("viewTgtAnchorSize")
   
-  #preprocessing_label(graph,Locus,viewLabel,viewSize)
-  #coloring_edges(graph,viewColor,Neghative,Positive)
-  #draw(graph,viewShape)
-  if graph.getSubGraph("clone_gi"):
-    graph.delSubGraph(graph.getSubGraph("clone_gi"))
-  graph.addSubGraph("clone_gi")
-  g=graph.getSubGraph("clone_gi")
+  #Part 1:
+  preprocessing_label(graph,Locus,viewLabel,viewSize)
+  coloring_edges(graph,viewColor,Negative,Positive)
+  draw(graph,viewShape)
+  
+  #Part 2:
+  if graph.getSubGraph("hierarchical_tree"):
+    graph.delSubGraph(graph.getSubGraph("hierarchical_tree"))
+  graph.addSubGraph("hierarchical_tree")
+  g=graph.getSubGraph("hierarchical_tree")
   gi=graph.getSubGraph("Genes interactions")
   create_hierarchical_tree(g,gi)
   g.applyLayoutAlgorithm("Tree Radial")
+  colorNodes(g,tp1_s,viewColor)
