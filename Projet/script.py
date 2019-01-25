@@ -1,43 +1,39 @@
-# Powered by Python 2.7
+"""
+Powered by Python 2.7
 
-# To cancel the modifications performed by the script
-# on the current graph, click on the undo button.
+Implemented by :
+Benoît Bothorel & Julien Denou
 
-# Some useful keyboards shortcuts : 
-#   * Ctrl + D : comment selected lines.
-#   * Ctrl + Shift + D  : uncomment selected lines.
-#   * Ctrl + I : indent selected lines.
-#   * Ctrl + Shift + I  : unindent selected lines.
-#   * Ctrl + Return  : run script.
-#   * Ctrl + F  : find selected text.
-#   * Ctrl + R  : replace selected text.
-#   * Ctrl + Space  : show auto-completion dialog.
+Project Tulip with M.Bourqui
+"""
+
 
 from tulip import *
 
-# The updateVisualization(centerViews = True) function can be called
-# during script execution to update the opened views
 
-# The pauseScript() function can be called to pause the script execution.
-# To resume the script execution, you will have to click on the "Run script " button.
+"""
+Part 1 : Previsualization
+"""
 
-# The runGraphScript(scriptFile, graph) function can be called to launch
-# another edited script on a tlp.Graph object.
-# The scriptFile parameter defines the script name to call (in the form [a-zA-Z0-9_]+.py)
-
-# The main(graph) function must be defined 
-# to run the script on the current graph
-
-#Part 1 : Previsualization
-
-#function for the preprocessing of the labels
+"""
+Function for the preprocessing of the labels:
+Takes a graph and 3 of his properties and modify them for
+each nodes of the graph.
+"""
 def preprocessing_label(graph,Locus,viewLabel,viewSize):
   for n in graph.getNodes():
     viewLabel[n] = Locus[n]
     viewSize[n] = tlp.Size(5,5,1)
 
-#function used to color the edges of the graph using his
-#negative and positive property 
+"""
+Function used to color the edges of the graph using his
+Negative and Positive properties. The negative and positive values
+correspond to the type of regulation of a given gene.
+Regulation - : red
+Regulation + : green
+Regulation + & - : blue
+No regulation : black
+"""
 def coloring_edges(graph,viewColor,Negative,Positive):
   for e in graph.getEdges():
     if Negative[e] == True and Positive[e] == False:
@@ -48,24 +44,33 @@ def coloring_edges(graph,viewColor,Negative,Positive):
       viewColor[e]=tlp.Color.Black
     else:
       viewColor[e] = tlp.Color.Blue
-      
-#function used to draw the graph
-#closing all views from Tulip first and creating a new one with no interpolate
-#then applaying a tree radial algorithm with edge bundling and bezier curve format to the edges
+
+"""
+Function to draw the graph using the shape of the edges in parameter and the graph
+1st : Closing all views from Tulip first and creating a new one with no interpolate
+2nd: Applying a tree radial algorithm with edge bundling and bezier curve format to the edges
+3rd: Also open automatically open a Spreadsheet view
+"""
 def draw(graph,viewShape):
   tlpgui.closeAllViews()
-  test = tlpgui.createView("Node Link Diagram view", graph, dataSet={}, show=True)
-  gui = test.getRenderingParameters()
+  view = tlpgui.createView("Node Link Diagram view", graph, dataSet={}, show=True)
+  tlpgui.createView("Spreadsheet view", graph, dataSet={}, show=True)
+  gui = view.getRenderingParameters()
   gui.setEdgeColorInterpolate(False)
   graph.applyLayoutAlgorithm("Tree Radial")
   graph.applyAlgorithm('Edge bundling')
   for e in graph.getEdges():
     viewShape[e]=tlp.EdgeShape.BezierCurve
 
-#Part 2 : Interaction network drawing
+"""
+Part 2 : Interaction network drawing
+"""
 
-#function used to create the hierarchical tree using the graph of the genes interactions
-#builds the hierarchical tree using a recursive call function
+"""
+Function used to create the hierarchical tree using the graph of the genes interactions.
+Builds the hierarchical tree using a recursive call function
+"""
+
 def create_hierarchical_tree(hierarchicalTree,gene_interact_graph):
   root = hierarchicalTree.addNode()
   call(hierarchicalTree,gene_interact_graph,root)
@@ -81,43 +86,64 @@ def call(hierarchical_tree,genes_interactions_tree,root):
       hierarchical_tree.addNode(n)
       hierarchical_tree.addEdge(root,n)
 
-#function used to color the nodes of a graph using their tpX_s values
-#using the BiologicalHeatMap colorScale inverted
+
+"""
+Function used to color the nodes of a graph using their tpX_s values
+using the BiologicalHeatMap colorScale inverted
+"""
 def colorNodes(graph,tpX_s,viewColor):
   tpX_sValues=[]
   for n in graph.getNodes():
     tpX_sValues.append(tpX_s[n])
   highestTpX_sValue = max(tpX_sValues)
   colorScale=tlpgui.ColorScalesManager.getColorScale("BiologicalHeatMap")
-
   for n in graph.getNodes():
     color=colorScale.getColorAtPos(1-(tpX_s[n]/highestTpX_sValue))
     viewColor[n]=color
 
-#function used to color the nodes of a graph using doubleProperties argument
-def colorNodes2(graph,prop,viewColor):
-  mini = prop.getNodeMin()
-  maxi = prop.getNodeMax()
-  colorScale=tlp.ColorScale([])
-  colorScale.setColorAtPos(mini,tlp.Color.Aquamarine)
-  colorScale.setColorAtPos(maxi,tlp.Color.ChartreuseGreen)
+"""
+Question2.4
+"""
+def findDad(tree, node):
+  path = []
+  return downlvl(tree, node, path)
 
-  for n in graph.getNodes():
-    color=colorScale.getColorAtPos(prop[n])
-    viewColor[n]=color 
-    
-#Question2.4
-def calcNodesDepth(tree,metric):
-  root=tree.getSource()
-  depth=0
-  calcNodesDepthRec(tree,metric,depth,root)
 
-def calcNodesDepthRec(tree,metric,depth,root):
-  metric[root]=depth
-  depth+=1
-  for n in root.getNodes():
-    calcNodesDepthRec(tree,metric,depth,n)
-  
+def downlvl(tree, node, path):
+  for dad in tree.getInNodes(node):
+    path.append(dad)
+    downlvl(tree, dad, path)
+  return path
+
+def shortestPath(tree, src, tgt):
+  src = findDad(tree, src)#avoir le père source
+  tgt = findDad(tree, tgt)#avoir le père target
+  tgt.pop(len(tgt)-1)#supprimer la dernière valeur
+
+  for srcnode in src:#tourner sur les noeuds source
+    for tgtnode in tgt:#tourner sur les noeuds target
+      if (srcnode == tgtnode): #si les noeuds sont égaux
+        srclast = src.pop(len(src)-1)#recuperer le dernier element source
+        tgtlast = tgt.pop(len(tgt) -1)#recuperer le dernier element target
+        while(srclast!=srcnode and tgtlast!=tgtnode ): #tourner tant que ces éléments sont différents des cibles
+          srclast = src.pop(len(src)-1)
+          tgtlast = tgt.pop(len(tgt) -1)
+        #sinon les ajouter a la liste
+        if srclast != tgtlast:
+          src.append(srcnode)
+          tgt.append(tgtnode)
+  tgt.reverse()#inverser target pour refaire le chemin
+  src = src + tgt #completer source
+  return src
+
+def createBundles(path,layout,edge,shape):
+  edgeLayout=[]
+  for n in path:
+    edgeLayout.append(layout[n])
+  layout[edge]=edgeLayout
+  shape[edge]=tlp.EdgeShape.CubicBSplineCurve
+
+
 def main(graph):
   Locus = graph.getStringProperty("Locus")
   Negative = graph.getBooleanProperty("Negative")
@@ -163,12 +189,12 @@ def main(graph):
   viewTexture = graph.getStringProperty("viewTexture")
   viewTgtAnchorShape = graph.getIntegerProperty("viewTgtAnchorShape")
   viewTgtAnchorSize = graph.getSizeProperty("viewTgtAnchorSize")
-  
+
   #Part 1:
-  preprocessing_label(graph,Locus,viewLabel,viewSize)
+  #preprocessing_label(graph,Locus,viewLabel,viewSize)
   coloring_edges(graph,viewColor,Negative,Positive)
   draw(graph,viewShape)
-  
+
   #Part 2:
   if graph.getSubGraph("hierarchical_tree"):
     graph.delSubGraph(graph.getSubGraph("hierarchical_tree"))
@@ -178,4 +204,7 @@ def main(graph):
   create_hierarchical_tree(g,gi)
   g.applyLayoutAlgorithm("Tree Radial")
   colorNodes(g,tp1_s,viewColor)
-  calcNodesDepth(g,viewMetric)
+  for e in gi.getEdges():
+    u,v=gi.ends(e)
+    path=shortestPath(g,u,v)
+    createBundles(path,viewLayout,e,viewShape)
