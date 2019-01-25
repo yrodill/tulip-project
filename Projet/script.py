@@ -93,6 +93,18 @@ def colorNodes(graph,tpX_s,viewColor):
   for n in graph.getNodes():
     color=colorScale.getColorAtPos(1-(tpX_s[n]/highestTpX_sValue))
     viewColor[n]=color
+    
+#Question2.4
+def calcNodesDepth(tree,metric):
+  root=tree.getSource()
+  depth=0
+  calcNodesDepthRec(tree,metric,depth,root)
+
+def calcNodesDepthRec(tree,metric,depth,root):
+  metric[root]=depth
+  depth+=1
+  for n in root.getNodes():
+    calcNodesDepthRec(tree,metric,depth,n)
   
 def main(graph):
   Locus = graph.getStringProperty("Locus")
@@ -154,3 +166,4 @@ def main(graph):
   create_hierarchical_tree(g,gi)
   g.applyLayoutAlgorithm("Tree Radial")
   colorNodes(g,tp1_s,viewColor)
+  calcNodesDepth(g,viewMetric)
