@@ -93,6 +93,18 @@ def colorNodes(graph,tpX_s,viewColor):
   for n in graph.getNodes():
     color=colorScale.getColorAtPos(1-(tpX_s[n]/highestTpX_sValue))
     viewColor[n]=color
+
+#function used to color the nodes of a graph using doubleProperties argument
+def colorNodes2(graph,prop,viewColor):
+  mini = prop.getNodeMin()
+  maxi = prop.getNodeMax()
+  colorScale=tlp.ColorScale([])
+  colorScale.setColorAtPos(mini,tlp.Color.Aquamarine)
+  colorScale.setColorAtPos(maxi,tlp.Color.ChartreuseGreen)
+
+  for n in graph.getNodes():
+    color=colorScale.getColorAtPos(prop[n])
+    viewColor[n]=color 
     
 #Question2.4
 def calcNodesDepth(tree,metric):
