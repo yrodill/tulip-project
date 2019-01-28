@@ -52,9 +52,9 @@ Function to draw the graph using the shape of the edges in parameter and the gra
 3rd: Also open automatically open a Spreadsheet view
 """
 def draw(graph,viewShape):
-  tlpgui.closeAllViews()
+  #tlpgui.closeAllViews()
   view = tlpgui.createView("Node Link Diagram view", graph, dataSet={}, show=True)
-  tlpgui.createView("Spreadsheet view", graph, dataSet={}, show=True)
+  #tlpgui.createView("Spreadsheet view", graph, dataSet={}, show=True)
   gui = view.getRenderingParameters()
   gui.setEdgeColorInterpolate(False)
   graph.applyLayoutAlgorithm("Tree Radial")
@@ -89,7 +89,7 @@ def call(hierarchical_tree,genes_interactions_tree,root):
 
 """
 Function used to color the nodes of a graph using their tpX_s values
-using the BiologicalHeatMap colorScale inverted
+and the BiologicalHeatMap colorScale inverted
 """
 def colorNodes(graph,tpX_s,viewColor):
   tpX_sValues=[]
@@ -104,46 +104,122 @@ def colorNodes(graph,tpX_s,viewColor):
 """
 Question2.4
 """
-def findDad(tree, node):
-  path = []
-  return downlvl(tree, node, path)
 
+"""
+Function used to fill a list with all the nodes
+encountered from one node to the root
+"""
+def getAscendantNode(tree, node):
+  fullPath = []
+  return getPathToRoot(tree, node, fullPath)
 
-def downlvl(tree, node, path):
-  for dad in tree.getInNodes(node):
-    path.append(dad)
-    downlvl(tree, dad, path)
+"""
+Function used to find recursively, all the nodes from one node
+to the root of the tree
+"""
+def getPathToRoot(tree, node, path):
+  for parent_node in tree.getInNodes(node):
+    path.append(parent_node)
+    getPathToRoot(tree, parent_node, path)
   return path
 
-def shortestPath(tree, src, tgt):
-  src = findDad(tree, src)#avoir le père source
-  tgt = findDad(tree, tgt)#avoir le père target
-  tgt.pop(len(tgt)-1)#supprimer la dernière valeur
+"""
+Function thats finds the shortest path between two nodes
+given in parameters.
+Return a list containing all the nodes between the two nodes
+which will be used to make the control points
+"""
+def shortestPathBetweenTwoNodes(tree, node1, node2):
+  src = getAscendantNode(tree, node1)
+  tgt = getAscendantNode(tree, node2)
+  tgt.pop(len(tgt)-1)
 
-  for srcnode in src:#tourner sur les noeuds source
-    for tgtnode in tgt:#tourner sur les noeuds target
-      if (srcnode == tgtnode): #si les noeuds sont égaux
-        srclast = src.pop(len(src)-1)#recuperer le dernier element source
-        tgtlast = tgt.pop(len(tgt) -1)#recuperer le dernier element target
-        while(srclast!=srcnode and tgtlast!=tgtnode ): #tourner tant que ces éléments sont différents des cibles
+  for srcnode in src:
+    for tgtnode in tgt:
+      if (srcnode == tgtnode):
+        srclast = src.pop(len(src)-1)#get the last elements from both lists
+        tgtlast = tgt.pop(len(tgt) -1)
+        while(srclast!=srcnode and tgtlast!=tgtnode ):
           srclast = src.pop(len(src)-1)
           tgtlast = tgt.pop(len(tgt) -1)
-        #sinon les ajouter a la liste
-        if srclast != tgtlast:
+        if srclast != tgtlast: 
           src.append(srcnode)
           tgt.append(tgtnode)
-  tgt.reverse()#inverser target pour refaire le chemin
-  src = src + tgt #completer source
-  return src
+  tgt.reverse()#reverse the target path to complement the source path
+  shortestPath = src + tgt
+  return shortestPath
 
-def createBundles(path,layout,edge,shape):
+"""
+Function that modify the edges layout (control points)
+and applying a Cubic B-Spline Curve to the edges
+"""
+def modifyEdges(path,layout,edge,shape):
   edgeLayout=[]
   for n in path:
     edgeLayout.append(layout[n])
   layout[edge]=edgeLayout
   shape[edge]=tlp.EdgeShape.CubicBSplineCurve
 
+"""
+Main function that compute all the bundle edges from the tree
+"""
+def createBundles(hierarchical_tree,gi,viewLayout,viewShape):
+  for e in gi.getEdges():
+    u,v=gi.ends(e)
+    path=shortestPathBetweenTwoNodes(hierarchical_tree,u,v)
+    modifyEdges(path,viewLayout,e,viewShape)
 
+"""
+Part 3 : Small multiples build
+"""
+
+"""
+Function used to create all the smallMultiple subgraphs
+according to their name from the original project
+"""
+def createSmallMultiples(smallMultiples,gi):
+  for i in range(1,18):
+    name="tp"+str(i)+"_s"
+    words=name.split("_")
+    tpX_s=words[0]+" "+words[1]
+    subgraph=smallMultiples.addSubGraph(name)
+    tlp.copyToGraph(subgraph,gi)
+    metric=subgraph.getLocalDoubleProperty("viewMetric")
+    original_metric=gi.getDoubleProperty(tpX_s)
+    metric.copy(original_metric)
+    viewColor=subgraph.getColorProperty("viewColor")
+    colorNodes(subgraph,metric,viewColor)
+
+"""
+Function using the computeBoudningBox method to place the subgraphs from
+the SmallMultiple subgraph on a virtual grid
+The number of column is used to determine how many subgraphs are placed in one row
+"""
+def createGrid(smallMultiples,layout,nbColumn):
+  box=tlp.computeBoundingBox(smallMultiples)
+  a=0
+  b=0
+  width=box.width()
+  height=box.height()
+  for subgraph in smallMultiples.getSubGraphs():
+    for n in subgraph.getNodes():
+        layout[n]+=tlp.Vec3f((width*a),(height*-b),0) #modifying the layout from the nodes
+    for e in subgraph.getEdges():
+      newlayout=[]
+      for vector in layout[e]:
+        vector += tlp.Vec3f((width*a),(height*-b),0) #modifying the layout from all the edges
+        newlayout.append(vector)
+      layout[e]=newlayout
+    if a < nbColumn-1:
+      a+=1 #shift to the right while a < number of columns -1
+    else: #else shift to the bottom and start back with a to 0
+      a=0
+      b+=1
+
+
+"""
+Main
+"""
 def main(graph):
   Locus = graph.getStringProperty("Locus")
   Negative = graph.getBooleanProperty("Negative")
@@ -191,20 +267,26 @@ def main(graph):
   viewTgtAnchorSize = graph.getSizeProperty("viewTgtAnchorSize")
 
   #Part 1:
-  #preprocessing_label(graph,Locus,viewLabel,viewSize)
+  preprocessing_label(graph,Locus,viewLabel,viewSize)
   coloring_edges(graph,viewColor,Negative,Positive)
   draw(graph,viewShape)
 
   #Part 2:
-  if graph.getSubGraph("hierarchical_tree"):
+  if graph.numberOfSubGraphs() > 2:
     graph.delSubGraph(graph.getSubGraph("hierarchical_tree"))
+    graph.delAllSubGraphs(graph.getSubGraph("Small Multiples"))
+  
   graph.addSubGraph("hierarchical_tree")
   g=graph.getSubGraph("hierarchical_tree")
   gi=graph.getSubGraph("Genes interactions")
   create_hierarchical_tree(g,gi)
   g.applyLayoutAlgorithm("Tree Radial")
   colorNodes(g,tp1_s,viewColor)
-  for e in gi.getEdges():
-    u,v=gi.ends(e)
-    path=shortestPath(g,u,v)
-    createBundles(path,viewLayout,e,viewShape)
+  createBundles(g,gi,viewLayout,viewShape)
+  
+    
+  #Part 3:
+  smallMultiple=graph.addSubGraph("Small Multiples")
+  createSmallMultiples(smallMultiple,gi)
+  createGrid(smallMultiple,viewLayout,5)
+  
