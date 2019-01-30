@@ -10,7 +10,6 @@ Project Tulip with M.Bourqui
 
 from tulip import *
 
-
 """
 Part 1 : Previsualization
 """
@@ -178,6 +177,7 @@ Function used to create all the smallMultiple subgraphs
 according to their name from the original project
 """
 def createSmallMultiples(smallMultiples,gi):
+  viewTime=graph.getIntegerProperty("Time")
   for i in range(1,18):
     name="tp"+str(i)+"_s"
     words=name.split("_")
@@ -189,6 +189,8 @@ def createSmallMultiples(smallMultiples,gi):
     metric.copy(original_metric)
     viewColor=subgraph.getColorProperty("viewColor")
     colorNodes(subgraph,metric,viewColor)
+    setStepOfTime(subgraph,viewTime,i)
+
 
 """
 Function using the computeBoudningBox method to place the subgraphs from
@@ -216,11 +218,56 @@ def createGrid(smallMultiples,layout,nbColumn):
       a=0
       b+=1
 
+"""
+Part 4 : Analysis
+"""
+
+"""
+Function used to find the enzymatic activity and keggID from each node(gene)
+from a txt file representing the gene database for E.coli.
+The function parses the txt file to get the informations needed and for each locus value from
+the nodes in the graph associate a viewEnzymaticAction and viewKeggID value.
+"""
+
+def getLocusInformations(file,locus):
+  list_genes=[]
+  list_locus=[]
+  list_functions=[]
+  with open(file,"r") as f:
+    for line in f.readlines():
+      if line[0] != "#":
+        list_locus.append(line.split("\t")[0])
+        list_genes.append(line.split("\t")[1])
+        list_functions.append(line.split("\t")[6])
+        
+  for i in range(len(list_genes)):
+    newName=list_genes[i].replace("(",":").replace(")","")
+    list_genes[i]=newName
+
+  
+  Locus = graph.getStringProperty("Locus")
+  viewFunction=graph.getStringProperty("viewEnzymaticAction")
+  viewKeggID=graph.getStringProperty("viewKeggID")
+  for n in graph.getNodes():
+    locus=Locus[n]
+    for i in range(len(list_locus)):
+      if list_locus[i] == locus:
+        viewFunction[n]=list_functions[i]
+        viewKeggID[n]=list_genes[i]
+
+"""
+Function that gives the step of time for each subgraph of the smallMultiple in a new metric
+this can be used to compare (visually with the spreadsheet view) the genes expressions at different time for the same gene
+"""
+def setStepOfTime(subgraph,viewTime,i):
+  for n in subgraph.getNodes():
+      viewTime[n]=i
 
 """
 Main
 """
 def main(graph):
+  viewTime=graph.getIntegerProperty("Time")
   Locus = graph.getStringProperty("Locus")
   Negative = graph.getBooleanProperty("Negative")
   Positive = graph.getBooleanProperty("Positive")
@@ -265,7 +312,11 @@ def main(graph):
   viewTexture = graph.getStringProperty("viewTexture")
   viewTgtAnchorShape = graph.getIntegerProperty("viewTgtAnchorShape")
   viewTgtAnchorSize = graph.getSizeProperty("viewTgtAnchorSize")
-
+  
+  
+  #Part 4:
+  getLocusInformations("./ecoli.txt",Locus)
+        
   #Part 1:
   preprocessing_label(graph,Locus,viewLabel,viewSize)
   coloring_edges(graph,viewColor,Negative,Positive)
@@ -289,4 +340,3 @@ def main(graph):
   smallMultiple=graph.addSubGraph("Small Multiples")
   createSmallMultiples(smallMultiple,gi)
   createGrid(smallMultiple,viewLayout,5)
-  
