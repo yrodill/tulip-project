@@ -19,7 +19,7 @@ Function for the preprocessing of the labels:
 Takes a graph and 3 of his properties and modify them for
 each nodes of the graph.
 """
-def preprocessing_label(graph,Locus,viewLabel,viewSize):
+def preprocessingLabels(graph,Locus,viewLabel,viewSize):
   for n in graph.getNodes():
     viewLabel[n] = Locus[n]
     viewSize[n] = tlp.Size(5,5,1)
@@ -33,7 +33,7 @@ Regulation + : green
 Regulation + & - : blue
 No regulation : black
 """
-def coloring_edges(graph,viewColor,Negative,Positive):
+def coloringEdges(graph,viewColor,Negative,Positive):
   for e in graph.getEdges():
     if Negative[e] == True and Positive[e] == False:
       viewColor[e]=tlp.Color.Red
@@ -50,7 +50,7 @@ Function to draw the graph using the shape of the edges in parameter and the gra
 2nd: Applying a tree radial algorithm with edge bundling and bezier curve format to the edges
 3rd: Also open automatically open a Spreadsheet view
 """
-def draw(graph,viewShape):
+def drawPreview(graph,viewShape):
   #tlpgui.closeAllViews()
   view = tlpgui.createView("Node Link Diagram view", graph, dataSet={}, show=True)
   #tlpgui.createView("Spreadsheet view", graph, dataSet={}, show=True)
@@ -70,7 +70,7 @@ Function used to create the hierarchical tree using the graph of the genes inter
 Builds the hierarchical tree using a recursive call function
 """
 
-def create_hierarchical_tree(hierarchicalTree,gene_interact_graph):
+def createHierarchicalTree(hierarchicalTree,gene_interact_graph):
   root = hierarchicalTree.addNode()
   call(hierarchicalTree,gene_interact_graph,root)
 
@@ -199,24 +199,24 @@ The number of column is used to determine how many subgraphs are placed in one r
 """
 def createGrid(smallMultiples,layout,nbColumn):
   box=tlp.computeBoundingBox(smallMultiples)
-  a=0
-  b=0
+  coord_X=0
+  coord_Y=0
   width=box.width()
   height=box.height()
   for subgraph in smallMultiples.getSubGraphs():
     for n in subgraph.getNodes():
-        layout[n]+=tlp.Vec3f((width*a),(height*-b),0) #modifying the layout from the nodes
+        layout[n]+=tlp.Vec3f((width*coord_X),(height*-coord_Y),0) #modifying the layout from the nodes
     for e in subgraph.getEdges():
       newlayout=[]
       for vector in layout[e]:
-        vector += tlp.Vec3f((width*a),(height*-b),0) #modifying the layout from all the edges
+        vector += tlp.Vec3f((width*coord_X),(height*-coord_Y),0) #modifying the layout from all the edges
         newlayout.append(vector)
       layout[e]=newlayout
-    if a < nbColumn-1:
-      a+=1 #shift to the right while a < number of columns -1
+    if coord_X < nbColumn-1:
+      coord_X+=1 #shift to the right while a < number of columns -1
     else: #else shift to the bottom and start back with a to 0
-      a=0
-      b+=1
+      coord_X=0
+      coord_Y+=1
 
 """
 Part 4 : Analysis
@@ -318,9 +318,9 @@ def main(graph):
   getLocusInformations("./ecoli.txt",Locus)
         
   #Part 1:
-  preprocessing_label(graph,Locus,viewLabel,viewSize)
-  coloring_edges(graph,viewColor,Negative,Positive)
-  draw(graph,viewShape)
+  preprocessingLabels(graph,Locus,viewLabel,viewSize)
+  coloringEdges(graph,viewColor,Negative,Positive)
+  drawPreview(graph,viewShape)
 
   #Part 2:
   if graph.numberOfSubGraphs() > 2:
@@ -330,7 +330,7 @@ def main(graph):
   graph.addSubGraph("hierarchical_tree")
   g=graph.getSubGraph("hierarchical_tree")
   gi=graph.getSubGraph("Genes interactions")
-  create_hierarchical_tree(g,gi)
+  createHierarchicalTree(g,gi)
   g.applyLayoutAlgorithm("Tree Radial")
   colorNodes(g,tp1_s,viewColor)
   createBundles(g,gi,viewLayout,viewShape)
