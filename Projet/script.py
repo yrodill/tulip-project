@@ -9,6 +9,11 @@ Project Tulip with M.Bourqui
 
 
 from tulip import *
+import urllib.request
+import re
+import codecs
+import webbrowser
+
 
 """
 Part 1 : Previsualization
@@ -205,28 +210,28 @@ def createGrid(smallMultiples,layout,nbColumn):
   height=box.height()
   for subgraph in smallMultiples.getSubGraphs():
     for n in subgraph.getNodes():
-        layout[n]+=tlp.Vec3f((width*coord_X),(height*-coord_Y),0) #modifying the layout from the nodes
+        layout[n]+=tlp.Vec3f((width*coord_X),(height*coord_Y),0) #modifying the layout from the nodes
     for e in subgraph.getEdges():
       newlayout=[]
       for vector in layout[e]:
-        vector += tlp.Vec3f((width*coord_X),(height*-coord_Y),0) #modifying the layout from all the edges
+        vector += tlp.Vec3f((width*coord_X),(height*coord_Y),0) #modifying the layout from all the edges
         newlayout.append(vector)
       layout[e]=newlayout
     if coord_X < nbColumn-1:
-      coord_X+=1 #shift to the right while a < number of columns -1
-    else: #else shift to the bottom and start back with a to 0
+      coord_X+=1 #shift to the right while coord_X < number of columns -1 (-1 because we start at 0 and not 1)
+    else: #else shift to the bottom and start back with coord_X to 0
       coord_X=0
-      coord_Y+=1
+      coord_Y-=1
 
 """
 Part 4 : Analysis
 """
 
 """
-Function used to find the enzymatic activity and keggID from each node(gene)
+Function used to find the protein and keggID from each node(gene)
 from a txt file representing the gene database for E.coli.
 The function parses the txt file to get the informations needed and for each locus value from
-the nodes in the graph associate a viewEnzymaticAction and viewKeggID value.
+the nodes in the graph associate a viewProtein and viewKeggID value.
 """
 
 def getLocusInformations(file,locus):
@@ -246,7 +251,7 @@ def getLocusInformations(file,locus):
 
   
   Locus = graph.getStringProperty("Locus")
-  viewFunction=graph.getStringProperty("viewEnzymaticAction")
+  viewFunction=graph.getStringProperty("viewProtein")
   viewKeggID=graph.getStringProperty("viewKeggID")
   for n in graph.getNodes():
     locus=Locus[n]
@@ -262,6 +267,33 @@ this can be used to compare (visually with the spreadsheet view) the genes expre
 def setStepOfTime(subgraph,viewTime,i):
   for n in subgraph.getNodes():
       viewTime[n]=i
+      
+"""
+Fucntion that finds the genes or the enzymes implicated in the desired process
+using an URL from biocyc.org
+Examples at : https://biocyc.org/web-services.shtml
+In our case we are looking for the genes and the enzymes implicated in the glycolysis
+and in the lactose degradation (pathway=BGALACT-PWY)
+Returns a list of strings
+"""      
+def findGenesOrEnzymesImplicatedInAGivenProcessus(biocycURL):
+  contents = urllib.request.urlopen(biocycURL).read()
+  file = contents.decode() #transform from bytes to string
+  result = re.findall("<common-name datatype='string'>(.+)</common-name>\n",file) #match anything between common-name tag
+  return result
+  
+def ecocycRequests():
+  genesFromGlycolysis=findGenesOrEnzymesImplicatedInAGivenProcessus("https://websvc.biocyc.org/apixml?fn=genes-of-pathway&id=ECOLI:GLYCOLYSIS")
+  print (genesFromGlycolysis,"\n")
+  
+  enzymesFromGlycolysis=findGenesOrEnzymesImplicatedInAGivenProcessus("https://websvc.biocyc.org/apixml?fn=enzymes-of-pathway&id=ECOLI:GLYCOLYSIS")
+  print (enzymesFromGlycolysis,"\n")
+  
+  genesFromLD=findGenesOrEnzymesImplicatedInAGivenProcessus("https://websvc.biocyc.org/apixml?fn=genes-of-pathway&id=ECOLI:BGALACT-PWY")
+  print (genesFromLD,"\n")
+  
+  enzymesFromLD=findGenesOrEnzymesImplicatedInAGivenProcessus("https://websvc.biocyc.org/apixml?fn=enzymes-of-pathway&id=ECOLI:BGALACT-PWY")
+  print (enzymesFromLD,"\n")
 
 """
 Main
@@ -318,15 +350,11 @@ def main(graph):
   getLocusInformations("./ecoli.txt",Locus)
         
   #Part 1:
-  preprocessingLabels(graph,Locus,viewLabel,viewSize)
+  #preprocessingLabels(graph,Locus,viewLabel,viewSize)
   coloringEdges(graph,viewColor,Negative,Positive)
   drawPreview(graph,viewShape)
 
   #Part 2:
-  if graph.numberOfSubGraphs() > 2:
-    graph.delSubGraph(graph.getSubGraph("hierarchical_tree"))
-    graph.delAllSubGraphs(graph.getSubGraph("Small Multiples"))
-  
   graph.addSubGraph("hierarchical_tree")
   g=graph.getSubGraph("hierarchical_tree")
   gi=graph.getSubGraph("Genes interactions")
@@ -340,3 +368,25 @@ def main(graph):
   smallMultiple=graph.addSubGraph("Small Multiples")
   createSmallMultiples(smallMultiple,gi)
   createGrid(smallMultiple,viewLayout,5)
+  
+  
+ 
+  #Part 4(bis):
+  ecocycRequests()
+  """
+  We work on the clone of the initial graph
+  Applying a different algorithm (Hierarchical) on the initial graph and using
+  the same workflow as previously
+  """
+  clone=graph.getSubGraph("Clone")
+  clone.applyAlgorithm("Hierarchical")
+  clone.addSubGraph("hierarchical_tree2")
+  h2=clone.getSubGraph("hierarchical_tree2")
+  hs=clone.getSubGraph("Hierar Sup")
+  createHierarchicalTree(h2,hs)
+  h2.applyLayoutAlgorithm("Tree Radial")
+  colorNodes(h2,tp1_s,viewColor)
+  createBundles(h2,hs,viewLayout,viewShape)
+  smallMultiple2=clone.addSubGraph("Small Multiples2")
+  createSmallMultiples(smallMultiple2,hs)
+  createGrid(smallMultiple2,viewLayout,5)
